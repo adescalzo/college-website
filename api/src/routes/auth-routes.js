@@ -31,7 +31,7 @@ router.post("/register", async (req, res) => {
       const resultUsers = await dataAccess.query(`SELECT * FROM Users WHERE Email = @email`, [
         { name: 'email', value: email }
       ]);
-      const oldUser = resultUsers.recordset.length ? resultUsers.recordset[0] : null;;
+      const oldUser = resultUsers.recordset.length ? resultUsers.recordset[0] : null;
   
       if (oldUser) {
         return res.status(409).send("User Already Exist. Please Login");
@@ -60,12 +60,12 @@ router.post("/register", async (req, res) => {
         }
       );
 
-      // save user token
-      user.password = '';
-      user.token = token;
-  
-      // return new user
-      res.status(201).json(user);
+      // return user information
+      res.status(201).json({
+        id: user.id,
+        token,
+        email
+      });
 
     } catch (err) {
       console.log(err);
@@ -84,13 +84,19 @@ router.post("/login", async (req, res) => {
         }
         
         // Validate if user exist in our database
-        const user = await User.findOne({ email });
+        const result = await dataAccess.query(`SELECT * FROM Users WHERE Email = @email`, [
+          { name: 'email', value: email }
+        ]);
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        const user = result.recordset.length ? result.recordset[0] : null;
+        console.log(user);
+
+
+        if (user && (await bcrypt.compare(password, user.Password))) {
             // Create token
             const token = jwt.sign(
                 { 
-                    user_id: user._id, email 
+                    user_id: user.Id, email 
                 },
                 process.env.TOKEN_KEY,
                 {
@@ -98,15 +104,18 @@ router.post("/login", async (req, res) => {
                 }
             );
 
-            // save user token
-            user.token = token;
-
             // user
-            res.status(200).json(user);
+            res.status(200).json({
+              token,
+              email: user.Email,
+              password
+            });
+
+            return;
         }
 
-        res.status(400).send("Invalid Credentials");
-    } catch (err) {
+        res.status(400).send("Invalid Credentials");        
+      } catch (err) {
         console.log(err);
     }
 });
